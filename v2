@@ -1,0 +1,138 @@
+#projet de physique appliquée aux sciences sociales
+import numpy as np
+import matplotlib.pyplot as plt
+import random as rd
+from math import floor
+from math import ceil
+
+
+
+def simulation(Nf, Co, beta, gamma, eta0moins, eta0plus, R, delta, teta, phi, zeta, sigma0, petitomega, t, T): #valeurs dans le tableau page 8, t la période d'étude, T la période choc
+    #définition des paramètres que l'on va observer
+    y=np.zeros((Nf, t))#production où Y[i][t] est production à t de la firme i
+    p=[] #prix matrice où p[i][t] est prix à t pour firme i
+    W=[] #wages tq W[t] est la somme du coût des wages pour toutes les firmes
+    w=[] #matrice où w[i][t] wage firme i à t
+    d=[] #demande où d[i][t] est la demande de firme i à t
+    Def=[]  #défaut
+    Cb=[] #contrainte budgétaire des ménages
+    u=[] #utilité
+    pi=[] #chômage
+    S=[] #épargne
+    N=[] #nombre employés ?
+    granddelta=[]
+    grandphi=[]
+    xi=[]
+    xiprime=[]
+    wT=[] #WT page 6
+    P=[] #profits
+    test=
+    test2=
+    for i in range (Nf): #au départ initialisation
+        y[i][0]=zeta*N[i][0]
+
+    for k in range (1, t):
+        wbarre[k]=somme2(y, w, k)/somme1(y, k)
+        pbarre[k]=somme2(y,p,k)/somme1(y,k)
+        for i in range (Nf): #on se déplace dans les firmes
+            xi[i][k]=np.random() #aléatoire entre 0 et 1 suivant loi uniforme
+            xiprime[i][k]=np.random()
+            epsilon[i][k]= epsilon[i][k-1] + p[i][k]*min(y[i][k], d[i][k]) - w[i][k]*N[i][k]) #cashbalance -> calcul pas sûre de mon coup
+            grandphi[i][k]=-epsilon[i][k]/(w[i][k]*N[i][k])
+            if grandphi[i][k]>=teta: #défaut
+                Def[i][k]=Def[i][k]+epsilon[i][k] #on rajoute le cash balance négatif au coût supporté lors du défault par les banques
+                test2=bernoulli(phi)
+                if test2==0: #on supprime la firme -> voir comment faire en pratique
+
+            uetoile[i][k]=expdelamdem(-beta, W/wbarre[k], k)
+            etamoins[i][k]=fonction(eta0moins*(1+gamma*grandphi[i][k]))
+            etaplus[i][k]=fonction(eta0plus*(1-gamma*grandphi[i][k]))
+            if y[i][k-1]<d[i][k-1]:
+                y[i][k]=Y[i][k-1]+min(etaplus[i]*(d[i][k]-y[i][k]), zeta*uetoile[i][k])
+                if p[i][k-1]>0:
+                    wT[i][k]=w[i][k-1]*(1+gamma*(1-u[k])*xiprime[i][k])
+                if p[i][k-1]<pbarre[k-1]:
+                    p[i][k]=p[i][k-1]*(1+gamma*xi[i][k])
+            elif y[i][k-1]>d[i][k-1] :
+                y[i][k]=y[i][k-1]-etamoins[i]*(y[i][k]-d[i][k])
+                if p[i][k]<0:
+                    w[i][k]=w[i][k-1]*(1-gamma*(u[k])*xiprime[i][k])
+                if p[i][k-1]>pbarre[k-1]:
+                    p[i][k]=p[i][k-1]*(1-gamma*xi[i][k])
+            test=p[i][k-1]*min(y[i][k], d[i][k]) - wT[i][k]*y[i][k] + rhod*max(epsilon[i][k], 0) - rhol*min(epsilon[i][k], 0)
+            if test<0:
+                P[i][k]=0
+                w[i][k]=(rhod*max(epsilon[i][k], 0) - rhol*min(epsilon[i][k], 0)+p[i][k-1]*min(y[i][k], d[i][k]))/y[i][k]
+            else:
+                w[i][k]=wT[i][k]
+                P[i][k]=p[i][k-1]*min(y[i][k], d[i][k]) - w[i][k]*y[i][k] + rhod*max(epsilon[i][k], 0) - rhol*min(epsilon[i][k], 0)
+
+            if P[i][k]>0 and epsilon[i][k]>0:
+                granddelta[k]=delta*fonctionpourledelta(epsilon,P, k)
+                P[i][k]=P[i][k]-granddelta[k] #on les enlève pour les donner aux ménages (eq7)
+            d[i][k]=(Cb[k]/p[i][k])*expdeladem(beta, p, k)
+        u[k]=1-somme(N,k)/N
+        pi[k]=(p[k]-p[k-1])/p(k-1)
+        W[k]=somme2(N,w,k)
+        C[k]=somme3(p,Y,D,Nf,k)
+        S[k]=S[k-1]+W[k]+rhod[k]*S[k]-C[k]+granddelta[k]
+        epsilonplus[k]=somme4(epsilon, k)
+        epsilonmoins[k]=-somme5(epsilon, k)
+        rhod[k]=(f-1)*Def[k]/(S[k]+epsilonplus[k])
+        rhol[k]=f*Def[k]/epsilonmoins[k]
+        Cb[k]=Co*(S[k]+W[k]+rhod[k]*S[k])
+        #M[k]=S[k]+epsilonplus[k]-epsilonmoins[k] ça c'est sensé être, pas actualisé, après on peut actualiser pour vérif qu'on n'a pas fait de bêtise
+
+
+def somme(N,t):
+    s=0
+    for i in range (len(N)):
+        s=s+N[i][t]
+    return (s)
+
+def somme2(N,w,t):
+    s=0
+    for i in range (len(N)):
+        s=s+w[i][t]*N[i][t]
+    return (s)
+
+def somme3(p,Y,D,Nf,t):
+    s=0
+    for i in range (Nf):
+        s=s+p[i][t]*min(Y[i][t], D[i][t])
+    return (s)
+
+def somme4(epsilon, t):
+    res=0
+    for i in range (len(epsilon)):
+        if epsilon[i][t]>0:
+            res=res+epsilon
+    return (res)
+
+def somme5(epsilon, t):
+    res=0
+    for i in range (len(epsilon)):
+        if epsilon[i][t]<0:
+            res=res+epsilon
+    return (res)
+
+
+def expdeladem(beta, p, t):
+    res=0
+    for j in range (len(p)):
+        res=res+exp(-beta*p[j][t])
+    return (exp(-beta*p[i][t])/res)
+
+def fonction(a):
+    if a>=1:
+        return (1)
+    elif a<=0:
+        return (0)
+    else :
+        return (a)
+
+def fonctionpourledelta(epsilon, P,t):
+    res=0
+    for i in range (len(epsilon)):
+        res=res+epsilon[i][t]*numpy.heaviside(P[i][t])*numpy.heaviside(epsilon[i][t])
+    return res
