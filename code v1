@@ -1,0 +1,77 @@
+#projet de physique appliquée aux sciences sociales 
+
+
+
+def simulation(Nf, Co, beta, gamma, eta0moins, eta0plus, R, delta, teta, phi, zeta, sigma0, omega, t, T): #valeurs dans le tableau page 8, t la période d'étude, T la période choc 
+    #définition des paramètres que l'on va observer
+    y=np.zeros((Nf, t))#production où Y[i][t] est production à t de la firme i
+    p=[] #prix matrice où p[i][t] est prix à t pour firme i
+    W=[] #wages tq W[t] est la somme du coût des wages pour toutes les firmes
+    w=[] #matrice où w[i][t] wage firme i à t 
+    d=[] #demande où d[i][t] est la demande de firme i à t
+    D=[] #demande agrégée
+    Cb=[] #contrainte budgétaire des ménages
+    u=[] #utilité
+    pi=[] #chômage 
+    S=[] #épargne
+    N=[] #nombre employés ? 
+    granddelta=[]
+    for i in range (Nf): au départ initialisation ? 
+        y[i][0]=zeta*N[i][0]
+    for k in range (1, t):
+        wbarre[t]=somme2(y, w, t)/somme1(y, t)
+        pbarre[t]=somme2(y,p,t)/somme1(y,t)
+        #on produit 
+        for i in range (Nf): #on se déplace dans les firmes
+            uetoile[i][t]=expdelamdem(-beta, W/wbarre[t], t)
+            
+            etamoins[i][t]=fonction(eta0moins*(1+gamma*grandphi[i][t]))
+            etaplus[i][t]=fonction(eta0plus*(1-gamma*grandphi[i][t]))
+            if y[i][t]<d[i][t]:
+                y[i][t]=Y[i][t-1]+min(etaplus[i]*(d[i][t]-y[i][t]), zeta*uetoile[i][t])
+            else :
+                y[i][t]=y[i][t-1]-etamoins[i]*(y[i][t]-d[i][t])
+            
+            
+            d[i][t]=(Cb[t]/p[i][t])*expdeladem(beta, p, t)
+        u[t]=1-somme(N,t)/N
+        pi[t]=(p[t]-p[t-1])/p(t-1)
+        W[t]=somme2(N,w,t)
+        C[t]=somme3(p,Y,D,Nf,t)
+        S[t]=S[t-1]+W[t]+rhod[t]*S[t]-C[t]+granddelta[t]
+        D[t]=somme(D,t)
+        rhod[t]=(f-1)*D[t]/(S[t]+epsilonplus[t])
+        Cb[t]=Co*(S[t]+W[t]+rhod[t]*S[t])
+
+
+def somme(N,t):
+    s=0
+    for i in range (len(N)):
+        s=s+N[i][t]
+    return (s) 
+
+def somme2(N,w,t):
+    s=0
+    for i in range (len(N)):
+        s=s+w[i][t]*N[i][t]
+    return (s)
+
+def somme3(p,Y,D,Nf,t):
+    s=0
+    for i in range (Nf):
+        s=s+p[i][t]*min(Y[i][t], D[i][t])
+    return (s)
+
+def expdeladem(beta, p, t):
+    res=0
+    for j in range (len(p)):
+        res=res+exp(-beta*p[j][t])
+    return (exp(-beta*p[i][t])/res)
+
+def fonction(a):
+    if a>=1:
+        return (1)
+    elif a<=0: 
+        return (0)
+    else : 
+        return (a)
