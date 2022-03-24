@@ -1,0 +1,193 @@
+#projet de physique appliquée aux sciences sociales
+import numpy as np
+import matplotlib.pyplot as plt
+import random as rd
+from math import floor
+from math import ceil
+from math import exp
+
+def simulation(Nf, Co, beta, gamma, eta0moins, eta0plus, R, delta, teta, phi, zeta, sigma0, petitomega, f, t, T): #valeurs dans le tableau page 8, t la période d'étude, T la période choc
+    #définition des paramètres que l'on va observer
+    y=np.zeros((Nf, t))#production où Y[i][t] est production à t de la firme i
+    p=np.zeros((Nf,t)) #prix matrice où p[i][t] est prix à t pour firme i
+    W=np.zeros(t) #wages tq W[t] est la somme du coût des wages pour toutes les firmes
+    w=np.zeros((Nf,t)) #matrice où w[i][t] wage firme i à t
+    d=np.zeros((Nf,t)) #demande où d[i][t] est la demande de firme i à t
+    Def=np.zeros((Nf,t))  #défaut global
+    DEF=np.zeros(t)
+    Cb=np.zeros(t) #contrainte budgétaire des ménages
+    u=np.zeros((Nf,t)) #unemployment
+    pi=np.zeros(t) #inflation
+    S=np.zeros(t) #épargne
+    N=np.zeros((Nf,t)) #nombre employés
+    granddelta=np.zeros(t)
+    grandphi=np.zeros((Nf,t))
+    xi=np.zeros((Nf,t))
+    xiprime=np.zeros((Nf,t))
+    wT=np.zeros((Nf,t)) #WT page 6
+    P=np.zeros((Nf,t)) #profits
+    C=np.zeros(t) #consommation des ménages
+    U=np.zeros(t)
+    test=0
+    test2=0
+    epsilon=np.zeros((Nf,t))
+    uetoile=np.zeros((Nf,t))
+    etamoins=np.zeros((Nf,t))
+    etaplus=np.zeros((Nf,t))
+    pbarre=np.zeros(t)
+    wbarre=np.zeros(t)
+    epsilonmoins=np.zeros(t)
+    epsilonplus=np.zeros(t)
+    c=Co
+    for i in range (Nf): #au départ initialisation
+        y[i][0]=zeta*N[i][0]
+        p[i][0]=1
+        w[i][0]=1
+        d[i][0]=0
+        Def[i][0]=0
+        u[i][0]=0
+        N[i][0]=1
+        xi[i][0]=rd.random()
+        xiprime[i][0]=rd.random()
+        wT[i][0]=w[i][0]
+        P[i][0]=p[i][0]*y[i][0]-w[i][0]*y[i][0]
+        epsilon[i][0]=0
+        uetoile[i][0]=1
+        etamoins[i][0]=eta0moins
+        etaplus[i][0]=eta0plus
+        epsilon[i][0]=0
+        grandphi[i][0]=0
+    epsilonplus[0]=0
+    epsilonmoins[0]=0
+    pbarre[0]=1
+    wbarre[0]=1
+    C[0]=0
+    granddelta[0]=0
+    S[0]=0
+    W[0]=Nf
+    rhol=np.zeros(t)
+    rhod=np.zeros(t)
+    Cb[0]=c*(S[0]+W[0]+rhod[0]*S[0])
+    for k in range (1, t):
+
+        for i in range (Nf): #on se déplace dans les firmes
+            xi[i][k]=rd.random() #aléatoire entre 0 et 1 suivant loi uniforme
+            xiprime[i][k]=rd.random()
+            epsilon[i][k]= epsilon[i][k-1] + p[i][k]*min(y[i][k], d[i][k]) - w[i][k]*N[i][k] #cashbalance -> calcul pas sûre de mon coup
+            grandphi[i][k]=-epsilon[i][k]/(w[i][k]*N[i][k])
+            if grandphi[i][k]>=teta: #défaut
+                Def[i][k]=Def[i][k]+epsilon[i][k] #on rajoute le cash balance négatif au coût supporté lors du défault par les banques
+                #test2=bernoulli(phi)
+                #if test2==0: #on supprime la firme -> voir comment faire en pratique
+
+            uetoile[i][k]=fonctionuetoile(beta, w, wbarre,i, k)
+            etamoins[i][k]=fonction(eta0moins*(1+gamma*grandphi[i][k]))
+            etaplus[i][k]=fonction(eta0plus*(1-gamma*grandphi[i][k]))
+            if y[i][k-1]<d[i][k-1]:
+                y[i][k]=Y[i][k-1]+min(etaplus[i]*(d[i][k]-y[i][k]), zeta*uetoile[i][k])
+                if p[i][k-1]>0:
+                    wT[i][k]=w[i][k-1]*(1+gamma*(1-U[k])*xiprime[i][k])
+                if p[i][k-1]<pbarre[k-1]:
+                    p[i][k]=p[i][k-1]*(1+gamma*xi[i][k])
+            elif y[i][k-1]>d[i][k-1] :
+                y[i][k]=y[i][k-1]-etamoins[i]*(y[i][k]-d[i][k])
+                if p[i][k]<0:
+                    w[i][k]=w[i][k-1]*(1-gamma*(U[k])*xiprime[i][k])
+                if p[i][k-1]>pbarre[k-1]:
+                    p[i][k]=p[i][k-1]*(1-gamma*xi[i][k])
+            test=p[i][k-1]*min(y[i][k], d[i][k]) - wT[i][k]*y[i][k] + rhod[k]*max(epsilon[i][k], 0) - rhol[k]*min(epsilon[i][k], 0)
+            if test<0:
+                P[i][k]=0
+                w[i][k]=(rhod[k]*max(epsilon[i][k], 0) - rhol[k]*min(epsilon[i][k], 0)+p[i][k-1]*min(y[i][k], d[i][k]))/y[i][k]
+            else:
+                w[i][k]=wT[i][k]
+                P[i][k]=p[i][k-1]*min(y[i][k], d[i][k]) - w[i][k]*y[i][k] + rhod[k]*max(epsilon[i][k], 0) - rhol[k]*min(epsilon[i][k], 0)
+
+            if P[i][k]>0 and epsilon[i][k]>0:
+                granddelta[k]=delta*fonctionpourledelta(epsilon,P, k)
+                P[i][k]=P[i][k]-granddelta[k] #on les enlève pour les donner aux ménages (eq7)
+            d[i][k]=(Cb[k]/p[i][k])*expdeladem(beta, p, i, k)
+        DEF[k]=somme(Def, k)
+        wbarre[k]=somme2(y, w, k)/somme(y, k)
+        pbarre[k]=somme2(y,p,k)/somme(y,k)
+        U[k]=1-(somme(N,k)/Nf)
+        #pi[k]=(p[k]-p[k-1])/p[k-1]
+        W[k]=somme2(N,w,k)
+        C[k]=somme3(p,y,d,Nf,k)
+        S[k]=S[k-1]+W[k]+rhod[k]*S[k]-C[k]+granddelta[k]
+        epsilonplus[k]=somme4(epsilon, k)
+        epsilonmoins[k]=-epsilonplus[k]
+        rhod[k]=(f-1)*DEF[k]/(S[k]+epsilonplus[k])
+        rhol[k]=f*DEF[k]/epsilonmoins[k]
+        Cb[k]=Co*(S[k]+W[k]+rhod[k]*S[k])
+        #M[k]=S[k]+epsilonplus[k]-epsilonmoins[k] ça c'est sensé être, pas actualisé, après on peut actualiser pour vérif qu'on n'a pas fait de bêtise
+        return (U)
+
+def sommesimple(N, t):
+    res=0
+    for i in range (len(N)):
+        res=res+N[i]
+    return (res)
+
+def somme(N,t):
+    s=0
+    for i in range (len(N)):
+        s=s+N[i][t]
+    return (s)
+
+def somme2(N,w,t):
+    s=0
+    for i in range (len(N)):
+        s=s+w[i][t]*N[i][t]
+    return (s)
+
+def somme3(p,Y,D,Nf,t):
+    s=0
+    for i in range (Nf):
+        s=s+p[i][t]*min(Y[i][t], D[i][t])
+    return (s)
+
+def somme4(epsilon, t):
+    res=0
+    for i in range (len(epsilon)):
+        if epsilon[i][t]>0:
+            res=res+epsilon
+    return (res)
+
+def somme5(epsilon, t):
+    res=0
+    for i in range (len(epsilon)):
+        if epsilon[i][t]<0:
+            res=res+epsilon
+    return (res)
+
+
+def expdeladem(beta, p, i, t):
+    res=0
+    for j in range (len(p)):
+        res=res+exp(-beta*p[j][t])
+    return (exp(-beta*p[i][t])/res)
+
+def fonction(a):
+    if a>=1:
+        return (1)
+    elif a<=0:
+        return (0)
+    else :
+        return (a)
+
+def fonctionpourledelta(epsilon, P,t):
+    res=0
+    for i in range (len(epsilon)):
+        res=res+epsilon[i][t]*numpy.heaviside(P[i][t])*numpy.heaviside(epsilon[i][t])
+    return res
+
+def fonctionuetoile(beta, w, wbarre,i, t):
+    res=0
+    for j in range (len(w)):
+        res=res+exp(beta*w[j][t]/wbarre[t])
+    return (exp(beta*w[i][t]/wbarre[t])/res)
+
+##tests
+#simulation(10000, 0.5, 2, 0.01, 0.2, 0.4, 2, 0.02, 3, 0.1, 1, 0, 0.2, 0.5, 1, 0)
+#simulation(10000, 0.5, 2, 0.01, 0.2, 0.4, 2, 0.02, 3, 0.1, 1, 0, 0.2, 0.5, 10, 0)
