@@ -1,0 +1,236 @@
+#projet physique encore un test mais ça va bien marcher à un moment
+
+import numpy as np
+import matplotlib.pyplot as plt
+import random as rd
+from math import floor
+from math import ceil
+from math import exp
+
+
+##initialisation
+def initialisation(N, y0, zeta):#N nombre de firmes
+
+    P = np.ones(N)
+    Y = np.zeros(N)
+    D = np.zeros(N)
+    W = np.zeros(N)
+    Profits = np.zeros(N)
+    pmoy = 0
+    wmoy = 0
+    Ytot = 0
+
+    for i in range (N):
+        P[i] = 1 + 0.1*rd.random()
+        Y[i] = (y0 + 0.1*rd.random())*zeta
+        D[i] = y0
+        W[i] = zeta
+        Profits[i] = P[i]*min(D[i], Y[i]) - W[i]*Y[i] #profits avec la formule donnée dans l'article
+        pmoy = pmoy + P[i]*Y[i]
+        wmoy = wmoy + Y[i]*W[i]
+        Ytot = Ytot + Y[i]
+
+    pmoy = pmoy/Ytot
+    wmoy = wmoy/Ytot
+
+    e = Ytot/(N*zeta)
+    u = 1 - e
+    S = e*N
+
+    return (P, Y, D, W, Profits, pmoy, wmoy, e, u, S, Ytot)
+
+## on actualise à chaque temps et pour chaque firme
+
+def iteration(N, P, Y, D, W, Profits, pmoy, wmoy, e, u, S, gamma, eta0plus, eta0moins, propensité, zeta, beta):
+    Wmax = 1
+    uetoile = np.zeros(N)
+    temporaire = 0
+    dY = 0
+    p = 0
+    rdm = 0
+    r = 0
+    Pmin = 0
+    Wtot = 0
+    Ytot = 0
+    eta = 0
+    etaplus = np.zeros(N)
+    etamoins = np.zeros(N)
+    for i in range (N):
+        P[i] = P[i]/pmoy
+        W[i] = W[i]/pmoy
+        Profits[i] = Profits[i]/pmoy
+
+    S = S/pmoy
+    pmoy = 1 #cette étape a servi à normaliser les prix
+
+    for i in range (N):
+        dY = D[i] - Y[i]
+        p = P[i]
+        uetoile[i] = ustar(beta, u , i, Wmax, wmoy, W)
+        rdm = rd.random()
+        r = gamma*rd.random()
+        if dY>0 :
+
+            eta = eta0plus*(1+rdm)
+            if eta<0 :
+                eta = 0
+            if eta>1:
+                eta = 1
+            etaplus[i] = eta
+            Y[i] = Y[i] + min(etaplus[i]*(dY), zeta*uetoile[i])
+
+            if p<pmoy :
+                P[i] = P[i]*(1+r)
+            else :
+                P[i] =P[i]
+            if Profits[i]>0:
+                W[i] = W[i]*(1 + rdm)*(r)*e
+                W[i] = min(W[i], zeta*(P[i]*min(D[i], Y[i])))
+                W[i] = max(W[i], 0)
+
+        else :
+            eta = eta0moins*(1-rdm)
+            if eta<0:
+                eta = 0
+            if eta>1 :
+                eta=1
+            etamoins[i] = eta
+            Y[i] = Y[i] + eta*dY
+            if p>pmoy :
+                P[i] = P[i]*(1-r)
+            if Profits[i]<0:
+                W[i] = W[i]*(1 - rdm)*r*u
+                W[i] = max(W[i],0)
+        #Y[i] = max(Y[i], 0) on ne prend pas une production négative
+        Wtot = Wtot + W[i]*Y[i]
+        Ytot = Ytot+Y[i]
+
+        if P[i]<0 :
+            P[i]=0
+        Pmin = min (Pmin, P[i])
+        temporaire = temporaire + P[i]*Y[i]
+
+    pmoy = temporaire/Ytot
+    wmoy = Wtot/Ytot
+    e = Ytot/(N*zeta)
+    u = 1-e
+
+    budget = propensité*(Wtot/zeta + max(S, 0))
+
+    pbarre = pbar(pmoy, P, Pmin, beta)
+    Dtot=0
+    for i in range (N):
+        D[i] = 0
+        arg = beta*(Pmin-P[i])/pmoy
+        D[i] = budget * exp(arg)/(pbarre*P[i])
+        Profits[i] = P[i]*min(Y[i], D[i]) - Y[i]*W[i]/zeta
+        S = S - ( P[i]*min(Y[i], D[i]) - Y[i]*W[i]/zeta)
+        Dtot = Dtot + D[i]
+        Wmax = max(W[i],Wmax)
+
+    e=min(1, e)
+    e=max(e, 0)
+    u = 1-e
+
+    return (P, Y, D, W, Profits, pmoy, wmoy, e, u, S, Ytot)
+
+
+
+
+##fonctions intermédiaires
+def ustar(beta, u, i, Wmax, wmoy, W):
+    res = 0
+    res2 = 0
+    if beta>0 and wmoy>0:
+        for j in range (len(W)):
+            res = res + exp(beta*(W[j]-Wmax)/wmoy)
+        res2 = exp(beta*(W[i]-Wmax)/wmoy)
+        if res>0:
+            return (u*len(W)*(res2)/res)
+        else:
+            return(u)
+    else:
+        return (u)
+
+def wbar(wmoy, W, Wmax, beta):
+    res = 0
+    if beta>0 and wmoy>0:
+        for j in range (len(W)):
+            res = res+ exp(beta*(W[j]-Wmax)/wmoy)
+
+    return (res)
+
+def pbar(pmoy, P, Pmin, beta):
+    res = 0
+    for j in range (len(P)):
+        res = res+ exp(beta*(Pmin-P[j])/pmoy)
+
+    return (res)
+
+##programme final
+def final(N, y0, gamma, etaplus, etamoins, propensité, zeta, beta, perturbation, temps): #perturbation [debut, fin, intensitéprop, intensitézeta]
+    P, Y, D, W, Profits, pmoy, wmoy, e, u, S, Ytot = initialisation(N, y0, zeta)
+    deb = perturbation[0]
+    fin = perturbation[1]
+    intensprop = perturbation[2]
+    intenszeta = perturbation[3]
+
+    suivideu = np.zeros(temps)
+    suivideYtot = np.zeros(temps)
+    suivideYtot[0] = Ytot
+    for t in range (1, temps):
+        if t<deb or t>fin:
+            P, Y, D, W, Profits, pmoy, wmoy, e, u, S, Ytot = iteration(N, P, Y, D, W, Profits, pmoy, wmoy, e, u, S, gamma, etaplus, etamoins, propensité, zeta, beta)
+            suivideu[t]=u
+            suivideYtot[t] = Ytot
+        else:
+            P, Y, D, W, Profits, pmoy, wmoy, e, u, S, Ytot= iteration(N, P, Y, D, W, Profits, pmoy, wmoy, e, u, S, gamma, etaplus, etamoins, propensité/intensprop, zeta/intenszeta, beta)
+            suivideu[t]=u
+            suivideYtot[t]=Ytot
+
+    return (suivideYtot)
+
+##pour exécuter
+#final(1000, 0.5, 0.01, 0.4, 0.2, 0.5, 1,2, [2, 5, 2, 2], 10)
+
+##tracer
+
+def tracer(N, y0, gamma, etaplus, etamoins, propensité, zeta, beta, perturbation, temps):
+    res = final(N, y0, gamma, etaplus, etamoins, propensité, zeta, beta, perturbation, temps)
+    abscisse = [i for i in range (temps)]
+    plt.plot(abscisse, res)
+    plt.show()
+
+
+##unemployment moyen
+def stat(N, y0, gamma, etaplus, etamoins, propensité, zeta, beta, perturbation, temps, rep):
+    res=[]
+    for i in range (rep):
+        res.append(max(final(N, y0, gamma, etaplus, etamoins, propensité, zeta, beta, perturbation, temps)))
+    return (res)
+
+
+##test
+#on va d'abord simuler sans perturbation puis avec perturbation et regarder l'output
+
+#sans perturbation :final(1000, 0.5, 0.01, 0.4, 0.2, 0.5, 1,2, [1000, 10000, 10000, 10000], 10, 10)
+
+#avec perturbation : final(1000, 0.5, 0.01, 0.4, 0.2, 0.5, 1,2, [1, 3, 0.4, 0.4], 10, 10)
+
+#on va créer deux listes et comparer les valeurs en disant que la ref est le test 1
+
+res1=final(1000, 0.5, 0.01, 0.4, 0.2, 0.5, 1,2, [1000, 10000, 10000, 10000], 10)
+res2=final(1000, 0.5, 0.01, 0.4, 0.2, 0.5, 1,2, [1, 3, 10, 10], 10)
+res3 = np.zeros(len(res1))
+
+for i in range (len(res1)):
+    if res1[i]!=0:
+        res3[i] = min(res2[i]/res1[i],1)
+    else :
+        res3[i] = min(res2[i], 1)
+
+abscisse = [i for i in range (len(res1))]
+
+plt.plot(abscisse, res3)
+plt.show()
+
